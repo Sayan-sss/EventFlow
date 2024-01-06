@@ -1,19 +1,24 @@
-import stripe from "stripe";
+import Stripe from "stripe";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+
+import { stripe } from "@/lib/stripe";
 import { createOrder } from "@/lib/actions/order.actions";
 
-export async function POST(request: Request) {
-  const body = await request.text();
+export async function POST(req: Request) {
+  const body = await req.text();
+  const signature = headers().get("Stripe-Signature") as string;
 
-  const sig = request.headers.get("stripe-signature") as string;
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-  let event;
+  let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-  } catch (err) {
-    return NextResponse.json({ message: "Webhook error", error: err });
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
+  } catch (error: any) {
+    return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
   }
 
   // Get the ID and type
